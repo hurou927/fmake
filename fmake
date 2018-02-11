@@ -97,8 +97,8 @@ sub exeCommand_nvcc{
     my $dep = $_[2];
     system("$nc -M $in $ncflags $nclibs > $dep")==0                                          or return;#error
     system_printCommand("$nc -o $out $in $ncflags $nclibs")==0                               or return;#error
-    system("$nc -cubin $in $ncflags $nclibs && cuobjdump -sass $out.cubin >| $out.sass")==0  or return;#error
-    system("$nc -ptx $in $(ncflags) $(nclibs)")==0                                           or return;#error
+    system("$nc -cubin $in $ncflags $nclibs && cuobjdump -sass $out.cubin >| $out.sass 2>/dev/null")==0  or return;#error
+    system("$nc -ptx $in $ncflags $nclibs >/dev/null 2>&1")==0                               or return;#error
     return 1;
 }
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
