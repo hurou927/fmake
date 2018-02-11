@@ -94,10 +94,7 @@ sub exeCommand_c{
 sub exeCommand_nvcc{
     my $in =  $_[0];
     my $out = $_[1];
-    my $dep = $_[2];
-    my $command = "$nc -M $dep $ncflags";
-    print $command,"\n";
-    system($command)                                                                      or return;#error
+    my $dep = $_[2];                                                                   or return;#error
     system("$nc -M $in $ncflags $nclibs > $dep")                                                or return;#error
     system_printCommand("$nc -o $out $in $ncflags $nclibs")                               or return;#error
     system("$nc -cubin $in $ncflags $nclibs && cuobjdump -sass $out.cubin >| $out.sass")  or return;#error
