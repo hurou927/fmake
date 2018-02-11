@@ -38,14 +38,14 @@ if (@ARGV == 1){
 my @fileList = glob( "*.cpp *.c *.cu" ); # get file-list
 
 if($cleanFlag==1){
-    print "remove:";
+    print "remove :";
     foreach my $in  (@fileList){
         my ($out, $ext) = splitFileName($in);
         $out=$out.$exeExt;
         my $dep = $out.".${ext}${depExt}";
         unlink $out;
         unlink $dep;
-        print "$out,$dep,";
+        print " $out $dep";
     }
     print "\n";
     exit(0);
