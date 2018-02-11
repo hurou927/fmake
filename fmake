@@ -1,0 +1,170 @@
+#!/usr/bin/env perl
+#
+# fmake
+#  analyze dependecy file of current directory c++/c/cu file and compile them
+#  
+use strict;
+
+our $exeExt="";
+our $depExt="dep";
+
+# C++ : .cpp or .cc
+our $cxx = "g++";
+our $cxxflags = "-Wall -O2";
+our $cxxlibs  = "";
+
+# C :.c
+our $c = "gcc";
+our $cflags = "-Wall -O2";
+our $clibs  = "";
+
+# nvcc (CUDA) :.cu
+our $nc = "nvcc";
+our $narch="-arch sm_50";
+our $ncflags = " $narch -Xcompiler '-O2 -g' -Xptxas=-v";
+our $nclibs  = "";
+
+
+#=============================================================
+# main
+#=============================================================
+
+
+my @fileList = glob( "*.cpp *.c *.cu" ); # get file-list
+
+my $lengthOfFileList = @fileList;
+my $counter = 1;
+foreach my $in  (@fileList){
+    
+    print "[$counter/$lengthOfFileList] $in";
+    $counter = $counter + 1;
+
+    my ($out, $ext) = splitFileName($in); # basename and file extension
+    $out=$out.$exeExt;
+    my $dep = $out.".${ext}${depExt}"; # depfile name
+
+    if( ( ! -e $dep ) || ( isUpdated($out,$dep)) ){
+        print "\n";
+        if( $ext eq "cpp" || $ext eq "cc" ){ # C++
+            exeCommand_cplusplus($in,$out,$dep);
+        }elsif ( $ext eq "c" ) {             # C
+            exeCommand_c($in,$out,$dep);
+        }elsif ( $ext eq "cu" ) {            # NVCC(CUDA)
+            exeCommand_nvcc($in,$out,$dep);
+        }else{
+            print "ignore\n";
+        }
+    }else{
+        print "\t: no work to do.\n";
+    }
+}
+
+
+#=============================================================
+# submodules
+#=============================================================
+
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#bool exeCommand_cpp(in,out,dep)
+# exec command for c++
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+sub exeCommand_cplusplus{
+    my $in =  $_[0];
+    my $out = $_[1];
+    my $dep = $_[2];
+    system_printCommand("$cxx -MMD -MF $dep $in -o $out $cxxflags $cxxlibs") or return;#error
+    return 1;
+}
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#bool exeCommand_c(in,out,dep)
+# exec command for c
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+sub exeCommand_c{
+    my $in =  $_[0];
+    my $out = $_[1];
+    my $dep = $_[2];
+    my $command = "$c -MMD -MF $dep $in -o $out $cflags $clibs";
+    system_printCommand("$c -MMD -MF $dep $in -o $out $cflags $clibs") or return;#error
+    return 1;
+}
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#bool exeCommand_nvcc(in,out,dep)
+# exec command for nvcc
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+sub exeCommand_nvcc{
+    my $in =  $_[0];
+    my $out = $_[1];
+    my $dep = $_[2];
+    my $command = "$nc -M $dep $ncflags";
+    print $command,"\n";
+    system($command)                                                                      or return;#error
+    system("$nc -M $dep $ncflags $nclibs")                                                or return;#error
+    system_printCommand("$nc -o $out $in $ncflags $nclibs")                               or return;#error
+    system("$nc -cubin $in $ncflags $nclibs && cuobjdump -sass $out.cubin >| $out.sass")  or return;#error
+    system("$nc -ptx $in $(ncflags) $(nclibs)")                                           or return;#error
+    return 1;
+}
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# bool splitFileName(string filepath)
+#  return (filepath(without extension) , file-extension)
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+sub splitFileName{
+    my $out = $_[0];
+    $out =~ s/\.[^\.]*$//;
+    my $ext = $_[0];
+    $ext =~ s/.*\.([^\.]*$)/$1/;
+    return ($out,$ext);
+}
+
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# bool system(string command)
+#  system(command) and print command
+#  return : value of system(command)
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+sub system_printCommand{
+    my $command = $_[0];
+    print $command,"\n";
+    return system($command);
+}
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# bool isUpdated(string executionFilename, string Depfilename)
+#   if executionFilename was updated then return 1;
+#   else 0
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+sub isUpdated{
+    my $filename = $_[0];
+    my $mtime = mtime($filename);
+
+    my $depfilename = $_[1];
+
+    open(DATAFILE, "< ".$depfilename) or die("file open error");
+    my $deps="";
+    while(my $line = <DATAFILE>){
+        $line =~ s/\\\n//mg;
+        $deps = $deps.$line;
+    }
+    close(DATAFILE);
+    $deps =~ s/.*:\s*//;
+    my @strlist = split(/\s+/, $deps);
+
+    foreach my $s  (@strlist){
+        my $depmtime = mtime($s);
+        if ( $mtime lt $depmtime ){
+            return 1;
+        }
+    }
+
+    return 0;
+}
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# string mtime(string filepath)
+#   return mtime
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+sub mtime{
+    my $filename = $_[0];
+    my @filestat = stat $filename;
+    my ($sec, $min, $hour, $mday, $mon, $year)= localtime($filestat[9]);
+    $year = $year + 1900;
+    $mon= $mon + 1;
+    return sprintf("%04d%02d%02d%02d%02d%02d", $year, $mon, $mday, $hour, $min, $sec);
+}
