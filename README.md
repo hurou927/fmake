@@ -5,6 +5,14 @@ fmake is a simple tool for building c/c++/cu files.
 
 # usage
 
-```fmake```
+build
+```
+fmake
+```
+
+remove depfile and exection file.
+```
+fmake clean
+```
 
 
