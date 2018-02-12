@@ -9,20 +9,22 @@ fmake is a simple tool for building c/c++/cu files.
 * all :  build all source files
 * clean : remove depfiles and execution files
 
-## build
+## Build
 ```
 fmake
 fmake --all
 fmake -a
 ```
 
-## remove depfiles and execution files.
+## Remove
+depfiles and execution files.
 ```
 fmake --clean
 fmake -c
 ```
 
-## remove and build (remove->build)
+## Remove and Build
+remove->build
 ```
 fmake --all --clean
 fmake -ac
