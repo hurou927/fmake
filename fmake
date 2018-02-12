@@ -4,6 +4,7 @@
 #  analyze dependecy file of current directory c++/c/cu file and compile them
 #  
 use strict;
+use Getopt::Long qw(:config posix_default no_ignore_case gnu_compat bundling);
 
 our $exeExt="";
 our $depExt="dep";
@@ -28,16 +29,38 @@ our $nclibs  = "";
 #=============================================================
 # main
 #=============================================================
-my $cleanFlag = 0;
-if (@ARGV == 1){
-    if( $ARGV[0] eq "clean"){
-        $cleanFlag = 1;
-    }
+
+# --all|-a : build all c/c++/cu files in current directory
+# --clean|-c : clean files(exe files, .sass, .cubin and .ptx files)
+
+my $opt_all = -1;
+my $opt_clean = -1;
+GetOptions('all|a' => \$opt_all, 'clean|c' => \$opt_clean);
+if ( $opt_clean==-1 && $opt_all==-1 ){
+    $opt_all = 1;
 }
+
 
 my @fileList = glob( "*.cpp *.c *.cu" ); # get file-list
 
-if($cleanFlag==1){
+if( $opt_clean == 1 ){
+    clean();
+}
+
+if( $opt_all == 1){
+    all();
+}
+
+
+#=============================================================
+# submodules
+#=============================================================
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#clean()
+# delete output files
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+sub clean{
+    my @fileList = glob( "*.cpp *.c *.cu" ); # get file-list
     print "remove :";
     foreach my $in  (@fileList){
         my ($out, $ext) = splitFileName($in);
@@ -54,40 +77,40 @@ if($cleanFlag==1){
         }
     }
     print "\n";
-    exit(0);
 }
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#all()
+# build all files in current directory
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+sub all{
+    my @fileList = glob( "*.cpp *.c *.cu" ); # get file-list
+    my $lengthOfFileList = @fileList;
+    my $counter = 1;
+    foreach my $in  (@fileList){
+        my ($out, $ext) = splitFileName($in); # basename and file extension
+        $out=$out.$exeExt;
+        my $dep = $out.".${ext}${depExt}"; # depfile name
 
-my $lengthOfFileList = @fileList;
-my $counter = 1;
-foreach my $in  (@fileList){
-    my ($out, $ext) = splitFileName($in); # basename and file extension
-    $out=$out.$exeExt;
-    my $dep = $out.".${ext}${depExt}"; # depfile name
-    
 
-    print "[$counter/$lengthOfFileList] $in";
-    $counter = $counter + 1;
+        print "[$counter/$lengthOfFileList] $in";
+        $counter = $counter + 1;
 
-    if( ( ! -e $dep ) || ( isUpdated($out,$dep)) ){
-        print "\n";
-        if( $ext eq "cpp" || $ext eq "cc" ){ # C++
-            exeCommand_cplusplus($in,$out,$dep);
-        }elsif ( $ext eq "c" ) {             # C
-            exeCommand_c($in,$out,$dep);
-        }elsif ( $ext eq "cu" ) {            # NVCC(CUDA)
-            exeCommand_nvcc($in,$out,$dep);
+        if( ( ! -e $dep ) || ( isUpdated($out,$dep)) ){
+            print "\n";
+            if( $ext eq "cpp" || $ext eq "cc" ){ # C++
+                exeCommand_cplusplus($in,$out,$dep);
+            }elsif ( $ext eq "c" ) {             # C
+                exeCommand_c($in,$out,$dep);
+            }elsif ( $ext eq "cu" ) {            # NVCC(CUDA)
+                exeCommand_nvcc($in,$out,$dep);
+            }else{
+                print "ignore\n";
+            }
         }else{
-            print "ignore\n";
+            print "\t: no work to do.\n";
         }
-    }else{
-        print "\t: no work to do.\n";
     }
 }
- system_without_stderr_stdout("ls>foo.txt");   
-#=============================================================
-# submodules
-#=============================================================
-
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 #bool exeCommand_cpp(in,out,dep)
 # exec command for c++
