@@ -21,7 +21,7 @@ our $clibs  = "";
 # nvcc (CUDA) :.cu
 our $nc = "nvcc";
 our $narch="-arch sm_50";
-our $ncflags = " $narch -Xcompiler '-O2 -g' -Xptxas=-v";
+our $ncflags = "$narch -Xcompiler '-O2' -Xptxas=-v";
 our $nclibs  = "";
 
 
@@ -46,6 +46,12 @@ if($cleanFlag==1){
         unlink $out;
         unlink $dep;
         print " $out $dep";
+        if ( $ext eq "cu" ){
+            unlink "$out.ptx";
+            unlink "$out.sass";
+            unlink "$out.cubin";
+            print " ${out}.ptx ${out}.cubin ${out}.sass";
+        }
     }
     print "\n";
     exit(0);
@@ -113,10 +119,12 @@ sub exeCommand_nvcc{
     my $in =  $_[0];
     my $out = $_[1];
     my $dep = $_[2];
-    system_without_stderr_stdout("$nc -M $in $ncflags $nclibs > $dep")==0  or return;#error
-    system_printCommand("$nc -o $out $in $ncflags $nclibs")==0   or return;#error
-    system_without_stderr_stdout("$nc -cubin $in $ncflags $nclibs && cuobjdump -sass $out.cubin >| $out.sass")==0  or return;#error
-    system_without_stderr_stdout("$nc -ptx $in $ncflags $nclibs")==0  or return;#error
+    system_without_stderr_stdout("$nc -M $in > $dep")==0  or return;#error
+    system_printCommand("$nc -ptx -cubin -o $out $in $ncflags $nclibs")==0   or return;#error
+    system_without_stderr_stdout("cuobjdump -sass $out.cubin >| $out.sass")==0  or return;#error
+    #system_printCommand("$nc -o $out $in $ncdevoptflags $nchostoptflags $ncflags $nclibs")==0   or return;#error
+    #system_without_stderr_stdout("$nc -cubin $in $ncdevoptflags $nclibs && cuobjdump -sass $out.cubin >| $out.sass")==0  or return;#error
+    #system_without_stderr_stdout("$nc -ptx $in $ncdevoptflags $nclibs")==0  or return;#error
     return 1;
 }
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
