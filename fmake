@@ -142,10 +142,13 @@ sub exeCommand_nvcc{
     my $in =  $_[0];
     my $out = $_[1];
     my $dep = $_[2];
-    system_without_stderr_stdout("$nc -M $in > $dep")==0  or return;#error
+    #system_without_stderr_stdout("$nc -M $in > $dep")==0  or return;#error
+    system("$nc -M $in > $dep")==0  or return;#error
     system_printCommand("$nc -o $out $in  $ncflags $nclibs -Xptxas=-v")==0   or return;#error
-    system_without_stderr_stdout("$nc -cubin $in $ncflags $nclibs && cuobjdump -sass $out.cubin >| $out.sass")==0  or return;#error
-    system_without_stderr_stdout("$nc -ptx $in $ncflags $nclibs")==0  or return;#error
+    #system_without_stderr_stdout("$nc -cubin $in $ncflags $nclibs && cuobjdump -sass $out.cubin >| $out.sass")==0  or return;#error
+    #system_without_stderr_stdout("$nc -ptx $in $ncflags $nclibs")==0  or return;#error
+    system_redirect("$nc -cubin $in  $ncflags $nclibs && cuobjdump -sass $out.cubin","$out.sass","")==0  or return;#error
+    system_redirect("$nc -ptx $in  $ncflags $nclibs","","")==0  or return;#error    
     return 1;
 }
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -177,7 +180,24 @@ sub system_without_stderr_stdout{
     
     return $res
 }
-
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# system_redirect(string command,string outfile, string errfile)
+# exec system command redirecting stdout to outfile and stderr to errfile
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+sub system_redirect{
+    my ($command,$stdout_file, $stderr_file) = @_;
+    
+    if( $^O eq "MSWin32" ){
+        $stdout_file = ($stdout_file eq "") ? "nul" : $stdout_file;
+        $stderr_file = ($stderr_file eq "") ? "nul" : $stderr_file;
+    }else{
+        $stdout_file = ($stdout_file eq "") ? "/dev/null" : $stdout_file;
+        $stderr_file = ($stderr_file eq "") ? "/dev/null" : $stderr_file;
+    }
+    $command = $command." >| $stdout_file 2>| $stderr_file";
+    #print $command,"\n";
+    return system($command);
+}
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # bool system(string command)
 #  system(command) and print command
@@ -202,7 +222,7 @@ sub isUpdated{
     open(DATAFILE, "< ".$depfilename) or die("file open error");
     my $deps="";
     while(my $line = <DATAFILE>){
-        $line =~ s/\\\n//mg;
+        $line =~ s/\\\n/ /mg;
         $deps = $deps.$line;
     }
     close(DATAFILE);
